@@ -4,3 +4,5 @@ app/__pycache__/__init__.cpython-310.pyc
 app/__pycache__/main.cpython-310.pyc
 tests/__pycache__/__init__.cpython-310.pyc
 tests/__pycache__/test_main.cpython-310-pytest-9.1.1.pyc
+terraform/.terraform/
+terraform/.terraform.lock.hcl
