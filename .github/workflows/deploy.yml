@@ -40,7 +40,7 @@ jobs:
         run: pytest
 
   security-scan:
-    name: 🛡️ Security & Vulnerability Scan
+    name:  Security & Vulnerability Scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -89,7 +89,7 @@ jobs:
 
       - name: Render new Image in Task Definition
         id: render-task-def
-        uses: aws-actions/amazon-ecs-render-task-definition@v2
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
           task-definition: task-definition.json
           container-name: ${{ env.CONTAINER_NAME }}
