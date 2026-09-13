@@ -7,3 +7,8 @@ output "vpc_id" {
   description = "Provisioned AWS VPC ID"
   value       = aws_vpc.main.id
 }
+
+output "alb_dns_name" {
+  description = "Public URL of Application Load Balancer"
+  value       = aws_lb.main.dns_name
+}
