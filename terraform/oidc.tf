@@ -1,7 +1,7 @@
 variable "github_repo" {
   description = "GitHub repository in format 'owner/repo-name'"
   type        = string
-  default     = "Jinzo03/devops-fastapi-aws" # Replace with your GitHub username/repo
+  default     = "Jinzo03/devops-project" # Replace with your GitHub username/repo
 }
 
 # 1. OpenID Connect Provider for GitHub
