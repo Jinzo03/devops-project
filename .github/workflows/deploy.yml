@@ -1,14 +1,14 @@
-name: CI/CD Pipeline - Test, Build, & Deploy
+name: CI/CD Pipeline - Test, Security, Build & Deploy
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 permissions:
-  id-token: write   # Required for requesting the JWT OIDC token
-  contents: read    # Required for checking out repository code
+  id-token: write
+  contents: read
 
 env:
   AWS_REGION: us-east-1
@@ -18,9 +18,11 @@ env:
   CONTAINER_NAME: fastapi-app
 
 jobs:
+
   test:
-    name:  Run Unit Tests & Linting
+    name: Run Unit Tests & Linting
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -35,29 +37,43 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install ruff
+
+      - name: Run Linter
+        run: ruff check .
 
       - name: Run Pytest
         run: pytest
 
+
   security-scan:
-    name:  Security & Vulnerability Scan
+    name: Security & Configuration Scan
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Run Trivy Dockerfile Vulnerability Scanner
+      - name: Run Trivy Configuration Scan
         uses: aquasecurity/trivy-action@master
         with:
-          scan-type: 'config'
-          hide-shortcut-table: 'true'
-          output: 'trivy-results.txt'
+          scan-type: config
+          hide-progress: true
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+
 
   build-and-deploy:
-    name:  Build Image & Deploy to AWS ECS Fargate
-    needs: [test, security-scan]
+    name: Build Image & Deploy to AWS ECS Fargate
+    needs:
+      - test
+      - security-scan
+
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -72,22 +88,30 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, Tag, and Push Image to ECR
+      - name: Build, Tag and Push Image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            .
+
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Download Task Definition
         run: |
-          aws ecs describe-task-definition --task-definition ${{ env.CONTAINER_NAME }} --query taskDefinition > task-definition.json
+          aws ecs describe-task-definition \
+            --task-definition ${{ env.CONTAINER_NAME }} \
+            --query taskDefinition \
+            > task-definition.json
 
-      - name: Render new Image in Task Definition
+      - name: Render New Image in Task Definition
         id: render-task-def
         uses: aws-actions/amazon-ecs-render-task-definition@v1
         with:
