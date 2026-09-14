@@ -1,16 +1,22 @@
+import pytest
 from app.main import app
 from fastapi.testclient import TestClient
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    # Context manager ensures FastAPI lifespan startup/shutdown events run
+    with TestClient(app) as c:
+        yield c
 
 
-def test_read_root():
+def test_read_root(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json()["status"] == "online"
 
 
-def test_health_check():
+def test_health_check(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "healthy", "service": "fastapi-backend"}
