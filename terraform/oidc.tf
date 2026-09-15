@@ -4,6 +4,12 @@ variable "github_repo" {
   default     = "Jinzo03/devops-project" # Replace with your GitHub username/repo
 }
 
+variable "github_oidc_subject_repo" {
+  description = "GitHub OIDC subject repository value from the Actions token"
+  type        = string
+  default     = "Jinzo03@146479134/devops-project@1364825514"
+}
+
 # 1. OpenID Connect Provider for GitHub
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
@@ -29,7 +35,7 @@ resource "aws_iam_role" "github_actions" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_repo}:*"
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_oidc_subject_repo}:*"
           }
         }
       }
