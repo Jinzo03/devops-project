@@ -1,92 +1,94 @@
-variable "github_repo" {
-  description = "GitHub repository in format 'owner/repo-name'"
-  type        = string
-  default     = "Jinzo03/devops-project" # Replace with your GitHub username/repo
-}
+name: CI/CD Pipeline - Test, Security, Build & Push
 
-variable "github_oidc_subject_repo" {
-  description = "GitHub OIDC subject repository value from the Actions token"
-  type        = string
-  default     = "Jinzo03@146479134/devops-project@1364825514"
-}
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
 
-# 1. OpenID Connect Provider for GitHub
-resource "aws_iam_openid_connect_provider" "github" {
-  url             = "https://token.actions.githubusercontent.com"
-  client_id_list  = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1", "1c58a218dc7d179696353f5844db10f0a43972a0"]
-}
+permissions:
+  id-token: write
+  contents: read
 
-# 2. IAM Role for GitHub Actions Runner
-resource "aws_iam_role" "github_actions" {
-  name = "${var.app_name}-github-actions-role"
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: fastapi-app
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Effect = "Allow"
-        Principal = {
-          Federated = aws_iam_openid_connect_provider.github.arn
-        }
-        Condition = {
-          StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-          StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_oidc_subject_repo}:*"
-          }
-        }
-      }
-    ]
-  })
-}
+jobs:
+  test:
+    name: Run Unit Tests & Linting
+    runs-on: ubuntu-latest
 
-# 3. Permissions for ECR and ECS deployment
-resource "aws_iam_role_policy" "github_actions_policy" {
-  name = "${var.app_name}-github-actions-policy"
-  role = aws_iam_role.github_actions.id
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "ecr:PutImage",
-          "ecr:InitiateLayerUpload",
-          "ecr:UploadLayerPart",
-          "ecr:CompleteLayerUpload"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "ecs:DescribeServices",
-          "ecs:DescribeTaskDefinition",
-          "ecs:RegisterTaskDefinition",
-          "ecs:UpdateService"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:PassRole"
-        ]
-        Resource = aws_iam_role.ecs_execution_role.arn
-      }
-    ]
-  })
-}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
 
-output "github_actions_role_arn" {
-  description = "ARN of IAM Role for GitHub Actions to assume"
-  value       = aws_iam_role.github_actions.arn
-}
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff
+
+      - name: Run Linter
+        run: ruff check .
+
+      - name: Run Pytest
+        run: pytest
+
+  security-scan:
+    name: Security & Configuration Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Configuration Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          hide-progress: true
+          format: table
+          exit-code: "0"
+          severity: HIGH,CRITICAL
+
+  build-and-push:
+    name: Build Image & Push to ECR
+    needs:
+      - test
+      - security-scan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, Tag and Push Image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG \
+            -t $ECR_REGISTRY/$ECR_REPOSITORY:latest \
+            .
+
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
