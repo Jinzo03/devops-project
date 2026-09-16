@@ -1,0 +1,18 @@
+replicaCount: 2
+
+image:
+  repository: 233084606401.dkr.ecr.us-east-1.amazonaws.com/fastapi-app
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8000
+
+resources:
+  limits:
+    cpu: 250m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
