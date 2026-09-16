@@ -90,3 +90,22 @@ output "github_actions_role_arn" {
   description = "ARN of IAM Role for GitHub Actions to assume"
   value       = aws_iam_role.github_actions.arn
 }
+
+resource "aws_iam_role_policy" "github_actions_eks_policy" {
+  name = "github-actions-eks-policy"
+  role = aws_iam_role.github_actions.id # Match the exact resource name of your GitHub IAM role in oidc.tf
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster",
+          "eks:ListClusters"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}

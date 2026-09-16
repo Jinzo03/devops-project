@@ -80,3 +80,21 @@ resource "aws_eks_node_group" "main" {
     aws_iam_role_policy_attachment.eks_ecr_read,
   ]
 }
+
+# Create cluster access entry for GitHub Actions role
+resource "aws_eks_access_entry" "github_actions" {
+  cluster_name  = aws_eks_cluster.main.name
+  principal_arn = aws_iam_role.github_actions.arn # Match your GitHub IAM role resource name
+  type          = "STANDARD"
+}
+
+# Grant Cluster Admin permissions to GitHub Actions role
+resource "aws_eks_access_policy_association" "github_actions_admin" {
+  cluster_name  = aws_eks_cluster.main.name
+  policy_arn    = "arn:aws:iam::aws:policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = aws_iam_role.github_actions.arn
+
+  access_scope {
+    type = "cluster"
+  }
+}
