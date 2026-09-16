@@ -92,3 +92,13 @@ jobs:
 
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Kubeconfig & Verify Nodes
+        run: |
+          aws eks update-kubeconfig --region us-east-1 --name fastapi-app-eks
+          kubectl get nodes
