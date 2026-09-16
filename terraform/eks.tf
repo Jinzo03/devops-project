@@ -17,10 +17,16 @@ resource "aws_iam_role_policy_attachment" "eks_cluster_policy" {
   role       = aws_iam_role.eks_cluster.name
 }
 
+
 # EKS Cluster Definition
 resource "aws_eks_cluster" "main" {
   name     = "${var.app_name}-eks"
   role_arn = aws_iam_role.eks_cluster.arn
+
+  access_config {
+    authentication_mode                         = "API_AND_CONFIG_MAP"
+    bootstrap_cluster_creator_admin_permissions = true
+  }
 
   vpc_config {
     subnet_ids = [aws_subnet.public_1.id, aws_subnet.public_2.id]
@@ -91,7 +97,8 @@ resource "aws_eks_access_entry" "github_actions" {
 # Grant Cluster Admin permissions to GitHub Actions role
 resource "aws_eks_access_policy_association" "github_actions_admin" {
   cluster_name  = aws_eks_cluster.main.name
-  policy_arn    = "arn:aws:iam::aws:policy/AmazonEKSClusterAdminPolicy"
+  # Updated from IAM policy ARN to EKS Cluster Access Policy ARN
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
   principal_arn = aws_iam_role.github_actions.arn
 
   access_scope {
