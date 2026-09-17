@@ -96,7 +96,7 @@ resource "aws_eks_access_entry" "github_actions" {
 
 # Grant Cluster Admin permissions to GitHub Actions role
 resource "aws_eks_access_policy_association" "github_actions_admin" {
-  cluster_name  = aws_eks_cluster.main.name
+  cluster_name = aws_eks_cluster.main.name
   # Updated from IAM policy ARN to EKS Cluster Access Policy ARN
   policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
   principal_arn = aws_iam_role.github_actions.arn
