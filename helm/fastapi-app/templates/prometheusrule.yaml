@@ -1,0 +1,39 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}-alerts
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: fastapi-app-rules
+      rules:
+        # Alert 1: Pod CrashLoopBackOff or Failing Restarts
+        - alert: FastAPIContainerCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total{container="fastapi-app"}[5m]) * 60 > 2
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Container {{ $labels.container }} in pod {{ $labels.pod }} is crash looping."
+            description: "FastAPI container has restarted more than 2 times in the last 5 minutes."
+
+        # Alert 2: High HTTP 5xx Server Error Rate (> 5%)
+        - alert: FastAPIHigh5xxErrorRate
+          expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])) * 100 > 5
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High 5xx error rate detected on FastAPI microservice."
+            description: "HTTP 5xx error rate exceeds 5% over the past 5 minutes."
+
+        # Alert 3: High Memory Utilization
+        - alert: FastAPIPodHighMemory
+          expr: container_memory_working_set_bytes{container="fastapi-app"} > 400000000 # 400MB
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High Memory usage on {{ $labels.pod }}"
+            description: "Memory utilization has exceeded 400MB for over 5 minutes."

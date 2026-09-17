@@ -1,15 +1,17 @@
-from fastapi import FastAPI, status
+from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 
-app = FastAPI(
-    title="DevOps Demo API",
-    version="1.0.0"
-)
+app = FastAPI(title="FastAPI DevOps Demo")
 
-@app.get("/", status_code=status.HTTP_200_OK)
+# Automatically expose HTTP metrics at /metrics
+Instrumentator().instrument(app).expose(app)
+
+
+@app.get("/")
 def read_root():
-    return {"status": "online", "message": "DevOps FastAPI Service is running"}
+    return {"status": "online", "message": "FastAPI on AWS EKS"}
 
-@app.get("/health", status_code=status.HTTP_200_OK)
+
+@app.get("/health")
 def health_check():
-    # AWS Application Load Balancers use this endpoint to determine target health
     return {"status": "healthy", "service": "fastapi-backend"}
